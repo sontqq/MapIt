@@ -489,7 +489,7 @@ public class MainActivity extends Activity {
 
         TableLayout tableLayout = findViewById(R.id.tablelayout);
         TableLayout.LayoutParams params = new TableLayout.LayoutParams(
-                TableLayout.LayoutParams.FILL_PARENT,
+                TableLayout.LayoutParams.MATCH_PARENT,
                 TableLayout.LayoutParams.WRAP_CONTENT);
         tableLayout.setGravity(Gravity.CENTER_VERTICAL | Gravity.TOP);
         tableLayout.setLayoutParams(params);
