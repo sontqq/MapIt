@@ -25,12 +25,12 @@
         android:id="@+id/tablelayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center">
+        android:layout_gravity="center">
 
         <TableRow
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/imageView1"
@@ -47,7 +47,8 @@
 
         <TableRow
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/imageView2"
@@ -64,7 +65,8 @@
 
         <TableRow
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/imageView3"
@@ -81,7 +83,8 @@
 
         <TableRow
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/imageView4"
@@ -95,7 +98,44 @@
                 android:layout_height="wrap_content"
                 android:text="TextView" />
         </TableRow>
+
     </TableLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_weight="0"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/button1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:text="Go Home" />
+
+        <Button
+            android:id="@+id/button2"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:text="Current Pos" />
+
+        <Button
+            android:id="@+id/button3"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:text="Clear Markers" />
+
+        <Button
+            android:id="@+id/button4"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:text="AddLine" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/txtloaded"
@@ -104,5 +144,4 @@
         android:layout_weight="0"
         android:gravity="center"
         android:text="Loading.." />
-
 </LinearLayout>

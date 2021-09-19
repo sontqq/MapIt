@@ -11,6 +11,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -21,8 +23,10 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TableLayout;
@@ -65,6 +69,8 @@ import org.osmdroid.views.overlay.ItemizedIconOverlay;
 import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.Overlay;
 import org.osmdroid.views.overlay.OverlayItem;
+import org.osmdroid.views.overlay.Polyline;
+import org.osmdroid.views.overlay.infowindow.BasicInfoWindow;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -72,6 +78,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 class NearbyHandler {
     public static ConnectionLifecycleCallback connectionLifecycleCallback;
@@ -235,7 +244,8 @@ public class MainActivity extends Activity {
     public static int loaded_wifi = 0;
     public static int loaded_blue = 0;
     public static TextView txtLoaded;
-
+    public static Location lastLocation;
+    public static ArrayList<Location> locationList;
     public static MapView map;
     public static String httpResponse = "";
     public static String httpResponse_bl = "";
@@ -247,6 +257,9 @@ public class MainActivity extends Activity {
     public static RadiusMarkerClusterer clusterer_bl;
     public static Drawable markerDraw_wifi;
     public static Drawable markerDraw_bl;
+    public static IMapController mapController;
+    public static LocationManager locationManager;
+    public static LocationListener locationListener;
     //public static ConnectionLifecycleCallback cb;
     //public static EndpointDiscoveryCallback endpointDiscoveryCallback;
 
@@ -274,7 +287,7 @@ public class MainActivity extends Activity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Choose one. Or two.");
         builder.setMessage("Which one you want to show on map?");
-
+        builder.setCancelable(false);
         builder.setPositiveButton("WiFi", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 thread_wifi.start();
@@ -309,27 +322,31 @@ public class MainActivity extends Activity {
         txtLoaded = findViewById(R.id.txtloaded);
         points = new ArrayList<GeoPoint>();
         points_bl = new ArrayList<GeoPoint>();
-        markerDraw_wifi = ResourcesCompat.getDrawable(getResources(),
-                R.drawable.marker_cluster, null);
+
         map = findViewById(R.id.map);
 
         clusterer_wifi = new RadiusMarkerClusterer(getApplicationContext());
         clusterer_wifi.setIcon(colorize(BitmapFactory.decodeResource(getResources(),
                 R.drawable.marker_cluster), Color.CYAN));
-        clusterer_wifi.setRadius(60);
+        clusterer_wifi.setRadius(120); // 60
         clusterer_bl = new RadiusMarkerClusterer(getApplicationContext());
         clusterer_bl.setIcon(colorize(BitmapFactory.decodeResource(getResources(),
                 R.drawable.marker_cluster), Color.MAGENTA));
-        clusterer_bl.setRadius(60);
-
+        clusterer_bl.setRadius(120); //60
         Bitmap blicon = BitmapFactory.decodeResource(getResources(),
                 R.drawable.marker_cluster);
         Bitmap bbl = colorize(blicon, Color.GREEN);
         markerDraw_bl = new BitmapDrawable(getResources(), Bitmap.createScaledBitmap(bbl,
-                100, 100, true));
+                50, 50, true));
+        markerDraw_bl.setAlpha(50);
 
+        Bitmap wifiicon = BitmapFactory.decodeResource(getResources(),
+                R.drawable.marker_cluster);
+        markerDraw_wifi = new BitmapDrawable(getResources(), Bitmap.createScaledBitmap(wifiicon,
+                50, 50, true));
+        markerDraw_wifi.setAlpha(50);
         home = new GeoPoint(47.936291, 20.367531);
-        IMapController mapController = map.getController();
+        mapController = map.getController();
         mapController.setCenter(home);
         mapController.setZoom(17);
         mapController.animateTo(home);
@@ -340,26 +357,98 @@ public class MainActivity extends Activity {
         AndroidNetworking.initialize(getApplicationContext());
 
         CMarker homeMarker = new CMarker(map);
+        homeMarker.setInfoWindow(new BasicInfoWindow(R.layout.bonuspack_bubble, map));
         homeMarker.setPosition(home);
         homeMarker.setCtx(getApplicationContext());
         homeMarker.setActivity(MainActivity.this);
         homeMarker.setEnc("LOCALHOST");
+        homeMarker.setTitle("Home");
+        homeMarker.setTextIcon("texticon");
         Drawable homeIconDrawable = ContextCompat.getDrawable(getApplicationContext(),
                 R.drawable.home);
         Bitmap homeBitmap = ((BitmapDrawable) homeIconDrawable).getBitmap();
         Bitmap homeBitmapColorized = colorize(homeBitmap,
                 Color.RED);
-        Drawable convertedIcon = new BitmapDrawable(getResources(), Bitmap.createScaledBitmap(homeBitmapColorized, 100, 100, true));
+        Drawable convertedIcon = new BitmapDrawable(getResources(), Bitmap.createScaledBitmap(homeBitmapColorized, 50, 50, true));
 
         //add table for icons
 
 
         homeMarker.setIcon(convertedIcon);
         homeMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        homeMarker.setId("homemarker");
         map.getOverlays().add(homeMarker);
         map.invalidate();
         //endregion
 
+        Button btn1 = findViewById(R.id.button1);
+        Button btn2 = findViewById(R.id.button2);
+        Button btn3 = findViewById(R.id.button3);
+        Button btn4 = findViewById(R.id.button4);
+
+        btn1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mapController.animateTo(home);
+                mapController.setCenter(home);
+            }
+        });
+
+        btn2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+                locationManager.requestSingleUpdate(
+                        LocationManager.NETWORK_PROVIDER, locationListener, null);
+                GeoPoint pos = new GeoPoint(lastLocation);
+                mapController.animateTo(pos);
+                mapController.setCenter(pos);
+                mapController.zoomTo(22);
+
+            }
+        });
+
+        btn3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //map.getOverlays().clear();
+                for (int i = 0; i < map.getOverlays().size(); i++) {
+                    try {
+                        Overlay overlay = map.getOverlays().get(i);
+                        if (overlay instanceof CMarker && ((CMarker) overlay).getId().equals("homemarker")) {
+                            Log.d("MARKER_TEST_", overlay.getClass() + " _ " + overlay.toString());
+                            map.getOverlays().remove(overlay);
+                            map.invalidate();
+                        } else if (overlay instanceof Polyline && ((Polyline) overlay).getId().equals("line")) {
+                            Log.d("MARKER_TEST_", overlay.getClass() + " _ " + overlay.toString());
+                        } else if (overlay instanceof RadiusMarkerClusterer) {
+                            Log.d("MARKER_TEST_", overlay.getClass() + " _ " + overlay.toString());
+                            map.getOverlays().remove(overlay);
+                            map.invalidate();
+                        } else if (overlay instanceof ItemizedIconOverlay) {
+                            Log.d("MARKER_TEST_", overlay.getClass() + " _ " + overlay.toString());
+                            map.getOverlays().remove(overlay);
+                            map.invalidate();
+                        } else {
+                            Log.d("MARKER_TEST_", overlay.getClass() + " _ " + overlay.toString());
+                            map.getOverlays().remove(overlay);
+                            map.invalidate();
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        btn4.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                addLine();
+            }
+        });
 
         final String[] wifiCount = {""};
         final String[] blCount = {""};
@@ -471,14 +560,21 @@ public class MainActivity extends Activity {
         img4.setImageDrawable(img4drw);
         rowtxt4.setText("WiFi Marker");
 
-        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        LocationListener locationListener = new LocationListener() {
+        TableLayout tableLayout = findViewById(R.id.tablelayout);
+        TableLayout.LayoutParams params = new TableLayout.LayoutParams(
+                TableLayout.LayoutParams.MATCH_PARENT,
+                TableLayout.LayoutParams.WRAP_CONTENT);
+        tableLayout.setGravity(Gravity.CENTER);
+        tableLayout.setLayoutParams(params);
+
+        locationList = new ArrayList<>();
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(@NonNull Location location) {
-                GeoPoint currentLocation = new GeoPoint(location.getLatitude(), location.getLongitude());
-                mapController.animateTo(currentLocation);
-                mapController.setCenter(currentLocation);
-                Toast.makeText(getApplicationContext(), "Got Position! Provider: " + location.getProvider(), Toast.LENGTH_LONG).show();
+                lastLocation = location;
+                locationList.add(location);
+                addLine();
             }
         };
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -486,19 +582,39 @@ public class MainActivity extends Activity {
         }
         locationManager.requestSingleUpdate(
                 LocationManager.NETWORK_PROVIDER, locationListener, null);
-
-        TableLayout tableLayout = findViewById(R.id.tablelayout);
-        TableLayout.LayoutParams params = new TableLayout.LayoutParams(
-                TableLayout.LayoutParams.MATCH_PARENT,
-                TableLayout.LayoutParams.WRAP_CONTENT);
-        tableLayout.setGravity(Gravity.CENTER_VERTICAL | Gravity.TOP);
-        tableLayout.setLayoutParams(params);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        }
+        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
 
 
     }
 
+    public static void addLine() {
+        for (int i = 0; i < map.getOverlays().size(); i++) {
+            Overlay overlay = map.getOverlays().get(i);
+            if (overlay instanceof Polyline && ((Polyline) overlay).getId().equals("line")) {
+                map.getOverlays().remove(overlay);
+                map.invalidate();
+            }
+        }
+        Polyline line = new Polyline(map);
+        line.setId("line");
+        line.setWidth(45);
+        //line.setColor(Color.argb(80,255,0,0));
+        line.setColor(getRandomColor());
+        List<GeoPoint> pts = new ArrayList<>();
+        for (Location loc : locationList) {
+            pts.add(new GeoPoint(loc));
+        }
+        line.setGeodesic(true);
+        line.setPoints(pts);
+        map.getOverlayManager().add(line);
+        map.invalidate();
+    }
+
     public void getbl() {
         String url_bl = "https://sont.sytes.net/wifi/mapmarks_bl_today.php";
+        //String url_bl = "https://sont.sytes.net/wifi/mapmarks_bl.php";
         AndroidNetworking.get(url_bl)
                 .build()
                 .getAsString(new StringRequestListener() {
@@ -532,6 +648,7 @@ public class MainActivity extends Activity {
 
     public void getwifi() {
         String url = "https://sont.sytes.net/wifi/mapmarks_today.php";
+        //String url = "https://sont.sytes.net/wifi/mapmarks.php";
         AndroidNetworking.get(url)
                 .build()
                 .getAsString(new StringRequestListener() {
@@ -625,7 +742,7 @@ public class MainActivity extends Activity {
             }
         });
         loaded_blue = lines.length;
-        txtLoaded.setText("WiFi: " + loaded_wifi + " Bluetooth: " + loaded_blue);
+        txtLoaded.setText("Bluetooth: " + loaded_blue + " WiFi: " + loaded_wifi);
         map.getOverlays().add(itemizedIconOverlay);
         map.invalidate();
     }
@@ -691,7 +808,7 @@ public class MainActivity extends Activity {
             }
         });
         loaded_wifi = lines.length;
-        txtLoaded.setText("WiFi: " + loaded_wifi + " Bluetooth: " + loaded_blue);
+        txtLoaded.setText("Bluetooth: " + loaded_blue + " WiFi: " + loaded_wifi);
         map.getOverlays().add(itemizedIconOverlay);
         map.invalidate();
     }
@@ -763,6 +880,33 @@ public class MainActivity extends Activity {
         }
     }
 
+    public static String locationToStringAddress(Context ctx, Location location) {
+        String strAdd = "";
+        Geocoder geocoder = new Geocoder(ctx, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+            if (addresses != null) {
+                Address returnedAddress = addresses.get(0);
+                StringBuilder strReturnedAddress = new StringBuilder();
+
+                for (int i = 0; i <= returnedAddress.getMaxAddressLineIndex(); i++) {
+                    strReturnedAddress.append(returnedAddress.getAddressLine(i)).append("");
+                }
+                strAdd = strReturnedAddress.toString();
+            }
+        } catch (Exception e) {
+            Log.d("LOCATION CONVERSION Error_", e.toString());
+            e.printStackTrace();
+            //return "Unknown";
+            return locationToStringAddress(ctx, location);
+        }
+        return strAdd;
+    }
+
+    public static int getRandomColor() {
+        Random rnd = new Random();
+        return Color.argb(255 / 2, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
+    }
 }
 
 class CMarker extends Marker {
