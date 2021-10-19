@@ -276,6 +276,7 @@ public class MainActivity extends Activity {
             }
         };
 
+
         Thread thread_wifi = new Thread() {
             @Override
             public void run() {
@@ -283,6 +284,9 @@ public class MainActivity extends Activity {
                 super.run();
             }
         };
+
+        thread_wifi.start();
+        thread_bl.start();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Choose one. Or two.");
@@ -308,11 +312,15 @@ public class MainActivity extends Activity {
             }
         });
         AlertDialog alert = builder.create();
-        alert.show();
+        //alert.show();
 
         //region INIT
-        Configuration.getInstance().load(MainActivity.this,
-                PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
+        try {
+            Configuration.getInstance().load(MainActivity.this,
+                    PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         setContentView(R.layout.activity_main);
@@ -402,11 +410,14 @@ public class MainActivity extends Activity {
                 }
                 locationManager.requestSingleUpdate(
                         LocationManager.NETWORK_PROVIDER, locationListener, null);
-                GeoPoint pos = new GeoPoint(lastLocation);
-                mapController.animateTo(pos);
-                mapController.setCenter(pos);
-                mapController.zoomTo(22);
-
+                try {
+                    GeoPoint pos = new GeoPoint(lastLocation);
+                    mapController.animateTo(pos);
+                    mapController.setCenter(pos);
+                    mapController.zoomTo(22);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         });
 
